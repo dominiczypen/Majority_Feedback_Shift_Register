@@ -1,0 +1,232 @@
+
+\documentclass[12pt, a4paper]{amsart}
+\usepackage{amssymb}
+\usepackage{amsthm}
+\usepackage{amsfonts}
+\usepackage{url}
+\usepackage{tikz}
+\usetikzlibrary{calc}
+\newtheorem{lemma}{\bf Lemma}[section]
+\newtheorem{proposition}[lemma]{\bf Proposition}
+\newtheorem{definition}[lemma]{\bf Definition}
+\parindent = 0mm
+\parskip = 2mm
+\begin{document}
+\title{Majority Feedback Shift Registers}
+\author{Dominic van der Zypen}
+%\address{Swiss Armed Forces, CH-3003 Bern, Switzerland}
+\email{dominic.zypen@gmail.com}
+\begin{abstract}
+This note we introduce ``majority feedback shift registers''. The
+new bit is calculated via a majority voting from the binary values
+	of the taps (fixed bit positions): If the majority of the 
+	taps are set to $0$, the output bit is set to $1$, and vice
+	versa. This is a highly non-linear function that is appealing
+	because of its simplicity.
+\end{abstract}
+%----------------------
+\maketitle
+%----------------------
+\section{Introduction}
+
+First, we define general feedback shift registers
+in a mathematically proper way.
+
+\begin{definition}
+\emph{
+Let $n\in\mathbb{N}$ be a positive integer.
+A function $$r:\{0,1\}^n \to \{0,1\}^n$$ is said to be
+an {\em $n$-bit feedback shift register} 
+if there is a one-bit-output map $$f : \{0,1\}^n \to \{0,1\}$$ such that 
+$$r(b_0, b_1,\ldots, b_{n-1})
+=  \big(b_1, b_2, \ldots, f(b_0, b_1,\ldots, b_{n-1})\big) \text{ for all } 
+	b\in\{0,1\}.$$ 
+The map $f$ is said to be the {\em feedback function}.
+}
+\end{definition}
+Recall the basic mechanism of linear feedback shift registers (LFSR): 
+Given a fixed set of taps (bit positions), the ``new'' bit is calculated 
+by applying $\oplus$ ({\tt XOR})\footnote{in {\tt C} and many other 
+languages, the caret {\string^} is used for bitwise {\tt XOR}}
+to those taps. Then the new bit 
+is inserted at the left end of the binary string to be manipulated,
+and the other bits are shifted. 
+Linear feedback shift registers (LFSR's) have a long history
+and plenty of applications, for instance as pseudo-number generators,
+see \cite{golo}.
+
+The fact that XOR is a linear 
+function\footnote{when seen as an operation in vector spaces over
+the field $\mathbb{Z}/2\mathbb{Z}$} 
+is seen as a disadvantage for some applications. For instance,
+LFSR's are not cryptographically secure as they yield to
+analysis using a set of linear equations, see \cite{mar}.
+
+There have been several proposals to introduce non-linearity
+to the feedback function $f:\{0,1\}^n \to \{0,1\}$.
+The resulting feedback shift registers are often slow, though.
+
+There is one known 
+way\footnote{ \url{https://en.wikipedia.org/wiki/Nonlinear-feedback_shift_register}}
+of constructing nonlinear feedback shift registers having period
+$2^n = |\{0,1\}^n|$, thus cycling through all possible bit-strings
+of length $n$. But the construction of other large NLFSRs with 
+guaranteed long periods remains an intriguing open problem.
+
+%----------------------------
+\section{Let the majority decide}
+As a new proposal, instead of XORing a few taps as it is done
+in LFSR's,
+fix an {\em odd number of taps} and  
+{\bf hold a vote} for the corresponding binary values: 
+If the majority of the taps is set to $0$, the new bit is $1$,
+and vice versa. This ``inversion'' (a majority of $0$'s sets
+the output to $1$ and vice versa) serves the purpose to 
+avoid constantness in the generated bit-string. So we should
+call the such a function an {\em inverse majority vote}.
+
+But the outcome is nevertheless decided by a majority.
+
+For the sake of completeness, we rigorously define
+the concept of an (inverse) majority feedback function for 
+an odd number of taps.
+
+\begin{definition}
+\emph{
+Let $n>1$, and let $T\subseteq 
+\{0,\ldots,n-1\}$ with $|T|$ odd be the 
+``the set of taps''. Let $\text{maj}_T:\{0,1\}^n\to \{0,1\}$ be
+defined by 
+    \begin{quote}$\text{maj}_T(b) = 1$ if $\; |T| <
+    2\cdot\big|\{i\in T: b_i = 0\}\big|$, \newline
+    and $\text{maj}_T(b) = 0$ otherwise.
+\end{quote}
+Then $\text{maj}_T: \{0,1\}^n\to\{0,1\}$ is said to be
+the {\em (inverse) majority number function} on $T$.
+The corresponding feedback shift register is said to be
+the {\em majority feedback shift register (MFSR)}, 
+denoted by $r_T$ and it is defined by 
+	$$(b_0,\ldots,b_{n-1})\mapsto 
+	\big(b_1, b_2,\ldots, \text{maj}_T(b_0,
+	\ldots,b_{n-1})\big).$$
+}
+\end{definition}
+%---------------------------
+\section{Open questions regarding MFSR}
+As the concept of majority voting in shift register seems 
+to be quite new, a few open questions arise. 
+\begin{enumerate}
+\item For which positive integers $n\in\mathbb{N}$ can the 
+tap set $T$ be chosen such that the period
+of the corresponding MFSR $r_T$
+	has period $2^n$?
+\item Is there for all positive integers $n$ an 
+	MFSR with period $O(2^n)$?
+\item (Soft question) Can the tap set $T$ be chosen such that
+	$r_T:\{0,1\}^n\to\{0,1\}^n$ is cryptographically secure
+		for large enough $n$?
+\end{enumerate}
+%---------------------------
+\section{{\tt C} code for a short and fast implementation}
+In the following we give the {\tt C} code for MFSR for {\tt uint16\_t} 
+numbers. It can easily be generalised to other numbers of bits.
+
+The code\footnote{\url{https://github.com/dominiczypen/Majority_Feedback_Shift_Register/blob/main/mfsr.c}} relies heavily on population count (counting numbers of $1$'s
+in a bit string). I have written this in {\tt C}, but it would be
+better to use the corresponding {\tt x86} primitive. 
+
+\begin{footnotesize}
+\begin{verbatim}
+/* Author: Dominic van der Zypen
+ * File: mfsr.c
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>   //  --> for using uint16_t
+
+char popcount(uint16_t x);
+char majority_vote(uint64_t x, char* taps, char num_of_taps);
+void mfsr(uint16_t* x, char* taps, char num_of_taps);
+//--------------------
+char popcount(uint16_t x)
+  // counts number of 1's in binary representation of x
+{
+  char count = 0;
+  while (x)
+  {
+    if (x & 1) {count++;}
+    x = x >> 1;
+  }
+  return count;
+}
+//--------------------
+char majority_vote(uint64_t x, char* taps, char num_of_taps)
+  // taps need to be distinct bit positions \in \{0, ... , 15\}
+  // num_of_taps needs to be odd, so we get no ties.
+  // return 1 if the 0's have majority, 0 otherwise
+{
+  uint16_t mask = 0;
+
+  // build mask: 1 at the taps positions, 0 otherwise
+
+  char i = 0;
+  while (i < num_of_taps)
+  {
+    mask = mask | (1 << *(taps+i));
+    i++;
+  }
+  char majority1 = ((popcount(mask & x) << 1) > num_of_taps);
+    // majority1 == 1 if and only if there are more 1 than 0's in masked x
+  return 1 - majority1;
+}
+//--------------------
+void mfsr(uint16_t* up, char* taps, char num_of_taps)
+  // new bit is determined with majority rule and then inserted after shift
+{
+  char my_new_bit = majority_vote(*up, taps, num_of_taps);
+  *up = (my_new_bit << 15) | ((*up) >> 1); 
+          // ... << 15 -> put new bit at left end!
+}
+//--------------------
+void print_uint16_bin(uint16_t x)
+{
+  char i = 0;
+  char my_bit = 0;
+  while (i < 16)
+  {
+    my_bit = (x >> 15) & 1;
+    printf("%d", my_bit);
+    x = x << 1;
+    i++;
+    if (!(i & 3)) {printf(" ");} // formatting; "& 3" is "modulo 4 != 0
+  }
+  printf("\n");
+}
+//--------------------
+int main()
+{
+  char* taps = (char*)malloc(sizeof(char) * 3);
+  *taps = 0; *(taps + 1) = 4; *(taps + 2) = 7; // example taps (3 in total)
+  char i = 0;
+  uint16_t x = 0x95c1; // 4 nibbles -> 16 bit
+  while (i < 20)
+  {
+    print_uint16_bin(x);
+    mfsr(&x, taps, 3);
+    i++;
+  }
+  return 0;
+}
+\end{verbatim}
+\end{footnotesize}
+\newpage
+\begin{thebibliography}{1}
+	\bibitem{golo} Golomb, S.W. (1967). {\em Shift register sequences.} 
+		Laguna Hills, Calif.: Aegean Park Press. 
+	\bibitem{mar} Martinez L.H., Khursheed S., Reddy S.M. (2019).
+		{\em LFSR generation for high test coverage and 
+		low hardware overhead.} 
+		IET Computers \& Digital Techniques.
+\end{thebibliography}
+\end{document}
